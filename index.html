@@ -2878,7 +2878,7 @@ textarea.input{height:auto;min-height:90px;padding:8px 10px;line-height:1.55;res
     else if (status === 404) m = "404：Base URL 或模型名不正确（也可能是网关未开启该模型的 /chat/completions）";
     else if (status === 413) m = "413：请求体过大（截图分辨率太高），可把「渲染倍率」调低";
     else if (status === 429) m = "429：请求被限流或额度不足";
-    else if (status === 502 || status === 504) m = "网关错误（" + status + "）：本地代理或上游网关没等到模型返回（超时 / 上游拒绝）。可以加大 proxy.py --timeout、开启流式、或调低渲染倍率。";
+    else if (status === 502 || status === 504) m = "网关错误（" + status + "）：本地代理转发上游失败。看代理窗口的诊断行——「连接超时/被拒绝/不可达」是网络问题（查 VPN、地址、端口，ping 上游验证），「读取超时」才是模型慢（加大 --timeout 或开流式）。";
     else if (status >= 500) m = "服务端错误（" + status + "）";
     else m = "HTTP " + status;
     return m + (detail ? "：" + detail : "");

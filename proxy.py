@@ -45,8 +45,43 @@ CORS_HEADERS = {
 
 UPSTREAM = None
 TIMEOUT = 180
+CONNECT_TIMEOUT = 10
 
 PORT_SPAN = 10  # 8787 起最多尝试 10 个端口
+
+
+def classify_connect_error(e):
+    """把 TCP 连接阶段的异常翻译成人能看懂的诊断。
+    注意：Windows 对无响应主机约 21 秒（SYN 重传 3+6+12s）就放弃，
+    所以连接超时通常在 ~21s 触发，与 --timeout（读取超时）无关。"""
+    if isinstance(e, (socket.timeout, TimeoutError)):
+        return ("连接超时：主机完全无响应（SYN 无应答）。通常是 IP/端口不对、网关宕机、"
+                "VPN 没连，或防火墙静默丢包。Windows 系统栈对无响应主机约 21 秒即放弃，")
+    if isinstance(e, ConnectionRefusedError):
+        return ("连接被拒绝：主机在线，但该端口没有服务在监听。"
+                "确认网关进程是否启动、端口是否正确，")
+    if isinstance(e, socket.gaierror):
+        return ("域名解析失败：检查 --upstream 的主机名拼写与本机 DNS，")
+    code = getattr(e, "winerror", None) or getattr(e, "errno", None)
+    return ("网络不可达（errno/winerror=%s）：路由、网段或防火墙拦截。" % (code,) +
+            "若在校园网/内网请确认 VPN 已连接，")
+
+
+def probe_upstream(host, port, timeout=3.0):
+    """启动时对上游做一次 TCP 探测，提前暴露「网关不可达」。"""
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(timeout)
+    try:
+        s.connect((host, port))
+        return True, None
+    except Exception as e:
+        advice = classify_connect_error(e)
+        return False, advice
+    finally:
+        try:
+            s.close()
+        except Exception:
+            pass
 
 
 def setup_stdio():
@@ -154,7 +189,9 @@ class Handler(BaseHTTPRequestHandler):
 
         conn_cls = http.client.HTTPSConnection if UPSTREAM.scheme == "https" else http.client.HTTPConnection
         port = UPSTREAM.port or (443 if UPSTREAM.scheme == "https" else 80)
-        conn = conn_cls(UPSTREAM.hostname, port, timeout=TIMEOUT)
+        # 连接与读取分开计时：连接用较短的 CONNECT_TIMEOUT 快速失败，
+        # 连接建立后再把 socket 超时改成 TIMEOUT（模型生成可能很慢）。
+        conn = conn_cls(UPSTREAM.hostname, port, timeout=CONNECT_TIMEOUT)
         t0 = time.time()
         path = self.path
         prefix = UPSTREAM.path.rstrip("/")
@@ -172,17 +209,17 @@ class Handler(BaseHTTPRequestHandler):
 
         try:
             conn.connect()
-        except (socket.timeout, TimeoutError):
-            waited = time.time() - t0
-            err("[proxy] 连接上游超时：%s（已等 %.1fs，timeout=%ds）" % (UPSTREAM.geturl(), waited, TIMEOUT))
-            self._fail(502, "连接上游超时：%d 秒内无法与 %s 建立 TCP 连接（已等 %.1f 秒）。请检查网关地址、端口、防火墙或 VPN。" %
-                       (TIMEOUT, UPSTREAM.geturl(), waited))
-            return
+            if conn.sock is not None:
+                conn.sock.settimeout(TIMEOUT)
         except Exception as e:
             waited = time.time() - t0
-            err("[proxy] 上游不可达：%s（%s: %s，已等 %.1fs）" % (UPSTREAM.geturl(), type(e).__name__, e, waited))
-            self._fail(502, "代理无法连接上游 %s：%s: %s（已等 %.1f 秒）。请确认网关地址可访问。" %
-                       (UPSTREAM.geturl(), type(e).__name__, e, waited))
+            advice = classify_connect_error(e)
+            err("[proxy] 无法连接上游 %s（%s: %s，%.1fs）" % (UPSTREAM.geturl(), type(e).__name__, e, waited))
+            err("[proxy] 诊断：%s建议先在代理所在机器执行：ping %s 或 Test-NetConnection %s -Port %d" %
+                (advice, UPSTREAM.hostname, UPSTREAM.hostname, port))
+            self._fail(502, "代理无法连接上游 %s —— %s（等了 %.1f 秒）。"
+                       "请检查 VPN / 网关地址端口 / 防火墙；可在代理窗口的机器上先 ping %s 验证。" %
+                       (UPSTREAM.geturl(), advice, waited, UPSTREAM.hostname))
             return
 
         try:
@@ -328,7 +365,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    global UPSTREAM, TIMEOUT
+    global UPSTREAM, TIMEOUT, CONNECT_TIMEOUT
     setup_stdio()
 
     ap = argparse.ArgumentParser(description="PDF 图表转矢量的本地 CORS 代理")
@@ -338,7 +375,9 @@ def main():
     ap.add_argument("--port", type=int, default=int(os.environ.get("PFV_PORT", "8787")),
                     help="起始监听端口，默认 8787；被占用时自动顺延")
     ap.add_argument("--timeout", type=int, default=int(os.environ.get("PFV_TIMEOUT", "600")),
-                    help="上游 socket 超时秒数，默认 600（也可用环境变量 PFV_TIMEOUT）；区分连接超时与读取超时")
+                    help="读取上游响应的超时秒数，默认 600（也可用环境变量 PFV_TIMEOUT）")
+    ap.add_argument("--connect-timeout", type=int, default=int(os.environ.get("PFV_CONNECT_TIMEOUT", "10")),
+                    help="与上游建立 TCP 连接的超时秒数，默认 10（快速失败；Windows 系统栈对无响应主机约 21 秒放弃）")
     args = ap.parse_args()
 
     if not args.upstream:
@@ -348,6 +387,7 @@ def main():
     if UPSTREAM.scheme not in ("http", "https") or not UPSTREAM.hostname:
         ap.error("upstream 不合法：%s" % args.upstream)
     TIMEOUT = max(10, args.timeout)
+    CONNECT_TIMEOUT = max(3, min(600, args.connect_timeout))
 
     srv, port = make_server(args.host, args.port)
     if srv is None:
@@ -356,12 +396,21 @@ def main():
         return 1
 
     shifted = port != args.port
+    upstream_port = UPSTREAM.port or (443 if UPSTREAM.scheme == "https" else 80)
+    up_ok, up_advice = probe_upstream(UPSTREAM.hostname, upstream_port)
+
     out("=" * 60)
     out(" PDF 图表转矢量 - 本地 CORS 代理")
     out("-" * 60)
     out("  上游网关：%s" % UPSTREAM.geturl())
     out("  监听地址：http://%s:%d" % (args.host, port))
-    out("  上游超时：%d 秒（连接与读取分开计时，超时返回 502 JSON）" % TIMEOUT)
+    out("  连接超时：%d 秒 / 读取超时：%d 秒（超时返回 502 JSON，日志会区分两类错误）" %
+        (CONNECT_TIMEOUT, TIMEOUT))
+    if up_ok:
+        out("  上游连通性：✓ TCP 可达（启动探测通过）")
+    else:
+        out("  上游连通性：✗ 当前不可达 —— %s" % up_advice)
+        out("              页面请求仍会尝试转发，但大概率 502；请先恢复网络/VPN 再生成。")
     if shifted:
         out("  注意：端口 %d 已被占用，已自动顺延到 %d。" % (args.port, port))
     out("")
