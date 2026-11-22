@@ -110,7 +110,7 @@ html[data-theme="dark"] .btn.primary:hover{background:var(--accent);filter:brigh
 .btn.danger{border-color:var(--err);color:var(--err)}
 
 .studio{
-  flex:1;min-height:0;display:grid;grid-template-columns:264px minmax(0,1fr) var(--rw,402px);
+  flex:1;min-height:0;display:grid;grid-template-columns:264px minmax(0,1fr) var(--rw,460px);
   background:var(--bg);
 }
 .pane{min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden}
@@ -308,11 +308,21 @@ html[data-theme="dark"] .btn.primary:hover{background:var(--accent);filter:brigh
   min-height:150px;display:flex;flex-direction:column;align-items:stretch;justify-content:center;
   gap:8px;padding:10px;
 }
-/* 预览页：原图裁切 + SVG 纵向排列（面板窄时单列，保证每张都够大） */
+/* 预览页：SVG 是主角——原图裁切默认收成矮条（点标题展开），SVG 占大空间 */
 .live-grid{display:grid;grid-template-columns:1fr;gap:10px;width:100%;align-items:start}
 .live-grid[hidden]{display:none!important}
 .live-grid figure{margin:0;min-width:0}
-.live-grid figcaption{font-size:10.5px;color:var(--muted);margin-top:3px;letter-spacing:.04em;text-transform:uppercase}
+.live-grid figcaption{
+  font-size:10.5px;color:var(--muted);margin-top:3px;letter-spacing:.04em;text-transform:uppercase;
+  cursor:pointer;user-select:none;
+}
+.live-grid figcaption:hover{color:var(--ink)}
+.live-grid figcaption::after{content:" ▾";font-size:9px}
+.live-grid figure.src-expanded figcaption::after{content:" ▴"}
+#zSrc{height:170px}
+#zSrc.expanded{height:clamp(340px,44vh,660px)}
+#zSvg{height:clamp(340px,48vh,680px)}
+.viewport.tall #zSvg{height:clamp(420px,62vh,840px)}
 /* ---- 缩放查看器（SVG / 位图通用） ---- */
 .zbar{grid-column:1/-1;display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin:0 0 2px}
 .zbar .zbtn{
@@ -349,19 +359,19 @@ html[data-theme="dark"] .btn.primary:hover{background:var(--accent);filter:brigh
 .live-grid svg [data-fade]{animation:liveFade .22s ease both}
 @keyframes liveFade{from{opacity:.15}to{opacity:1}}
 .live-meta{font-size:10.5px;color:var(--muted);font-family:var(--font-mono);margin-top:3px}
-/* 加高 / 大图模式 */
-.viewport.tall .zview{height:52vh}
+/* 加高 / 全屏大图模式 */
 .live-grid.max,.cmp.max{
   position:fixed;inset:14px;z-index:80;margin:0;padding:12px;overflow:auto;
   background:var(--bg);border:1px solid var(--rule);border-radius:10px;
   box-shadow:0 24px 70px rgba(0,0,0,.4);
 }
 .live-grid.max{grid-template-columns:1fr}
-.live-grid.max .zview{height:calc(50vh - 76px)}
+.live-grid.max #zSrc,.live-grid.max #zSrc.expanded{height:calc(50vh - 76px)}
+.live-grid.max #zSvg{height:calc(50vh - 76px)}
 .cmp.max{grid-template-columns:1fr 1fr}
-.cmp.max .zview{height:calc(44vh - 40px)}
+.cmp.max .zview{height:calc(46vh - 40px)}
 .cmp.max .wide{grid-column:1/-1}
-.cmp.max .wide .zview{height:30vh}
+.cmp.max .wide .zview{height:36vh}
 body.zoomax::after{content:"";position:fixed;inset:0;background:rgba(10,15,18,.5);z-index:79}
 .diagbox{
   margin:10px 0 0;padding:10px;border:1px solid var(--rule);border-radius:6px;background:var(--bg);
@@ -715,7 +725,7 @@ textarea.input{height:auto;min-height:90px;padding:8px 10px;line-height:1.55;res
         <div class="vaux" id="vcAux">模型 — · 档位 — · 请求 —</div>
       </div>
       <div class="qgroups">
-        <details class="qgroup" id="gMetric" open>
+        <details class="qgroup" id="gMetric">
           <summary>指标详情<span class="gs" id="gsMetric">—</span></summary>
           <div class="kv">
             <span>原始 MAE</span><b id="mMae">—</b>
@@ -723,6 +733,7 @@ textarea.input{height:auto;min-height:90px;padding:8px 10px;line-height:1.55;res
             <span>最优偏移</span><b id="mShift">—</b>
             <span>边缘 IoU</span><b id="mEdge">—</b>
             <span>返修轮数</span><b id="mRounds">—</b>
+            <span>几何 lint</span><b id="mLint" class="wrap">—</b>
             <span>收敛原因</span><b id="mConv" class="wrap">—</b>
             <span>尺寸</span><b id="mSize">—</b>
             <span>元素 / 体积</span><b id="mGeom">—</b>
@@ -809,7 +820,7 @@ textarea.input{height:auto;min-height:90px;padding:8px 10px;line-height:1.55;res
               <button class="zbtn" data-z="actual" title="实际像素（1:1）">1:1</button>
               <button class="zbtn" data-z="reset" title="重置到适应窗口">重置</button>
               <button class="zbtn" id="btnTallPreview" title="预览加高 / 还原">加高</button>
-              <button class="zbtn" data-z="max" title="大图模式（Esc 退出）">大图</button>
+              <button class="zbtn" data-z="max" title="全屏大图（Esc 退出）">⛶ 全屏</button>
             </div>
             <figure>
               <div class="zview" id="zSrc" tabindex="0">
@@ -845,7 +856,7 @@ textarea.input{height:auto;min-height:90px;padding:8px 10px;line-height:1.55;res
             <button class="zbtn" data-z="window" title="适应窗口">适窗</button>
             <button class="zbtn" data-z="actual" title="实际像素（1:1）">1:1</button>
             <button class="zbtn" data-z="reset" title="重置到适应窗口">重置</button>
-            <button class="zbtn" data-z="max" title="大图模式（Esc 退出）">大图</button>
+            <button class="zbtn" data-z="max" title="全屏大图（Esc 退出）">⛶ 全屏</button>
           </div>
           <figure>
             <div class="zview" id="zCmpSrc" tabindex="0">
@@ -1201,7 +1212,7 @@ textarea.input{height:auto;min-height:90px;padding:8px 10px;line-height:1.55;res
 
   var $ = function (id) { return document.getElementById(id); };
   var LS = "pfv.settings.v1";
-  var BUILD = "2026-11-23 · r4";
+  var BUILD = "2026-11-23 · r5";
   var THEME_LS = "pfv.theme";
   var MAX_SIDE = 2200;
   function tierOf() {
@@ -2376,7 +2387,7 @@ textarea.input{height:auto;min-height:90px;padding:8px 10px;line-height:1.55;res
       grid.classList.toggle("max", !!on);
       if (maxBtn) {
         maxBtn.classList.toggle("on", !!on);
-        maxBtn.textContent = on ? "退出大图" : "大图";
+        maxBtn.textContent = on ? "✕ 退出全屏" : "⛶ 全屏";
       }
       syncBodyOverlay();
       setTimeout(apply, 0);
@@ -2512,6 +2523,18 @@ textarea.input{height:auto;min-height:90px;padding:8px 10px;line-height:1.55;res
       setTimeout(function () { refreshZoom(); }, 0);
     });
 
+    /* 原图矮条 ⇄ 展开：点 figure 标题切换（SVG 预览始终占大空间） */
+    (function () {
+      var fig = $("zSrc") && $("zSrc").closest("figure");
+      var cap = fig && fig.querySelector("figcaption");
+      if (cap) cap.addEventListener("click", function () {
+        if ($("liveGrid").classList.contains("max")) return; /* 全屏下两图各半，不切换 */
+        fig.classList.toggle("src-expanded");
+        $("zSrc").classList.toggle("expanded");
+        setTimeout(function () { refreshZoom("preview"); }, 0);
+      });
+    })();
+
     /* 图片是异步载入的：载入完成后再按当前比例重排（不重置缩放） */
     Array.prototype.forEach.call(document.querySelectorAll(".zstage img"), function (img) {
       img.addEventListener("load", function () { refreshZoom(); });
@@ -2547,6 +2570,7 @@ textarea.input{height:auto;min-height:90px;padding:8px 10px;line-height:1.55;res
     { k: "validate", t: "SVG 合法性校验" },
     { k: "compose", t: "分层合成" },
     { k: "guard", t: "可编辑性护栏" },
+    { k: "lint", t: "几何 lint（FigGenie 式）" },
     { k: "diff", t: "差异反馈重绘" },
     { k: "repair", t: "MAE 局部返修" },
     { k: "ready", t: "预览就绪" }
@@ -2571,6 +2595,7 @@ textarea.input{height:auto;min-height:90px;padding:8px 10px;line-height:1.55;res
     job.attemptLog = [];
     stageOf(job, "compose").status = "skip";
     stageOf(job, "guard").status = "skip";
+    stageOf(job, "lint").status = "skip";
     stageOf(job, "diff").status = "skip";
     stageOf(job, "repair").status = "skip";
   }
@@ -3619,6 +3644,87 @@ textarea.input{height:auto;min-height:90px;padding:8px 10px;line-height:1.55;res
     return picked.map(function (p) { return hexOf(Math.round(p.r), Math.round(p.g), Math.round(p.b)); });
   }
 
+  /* ---- 几何 lint（借鉴 FigGenie：linter 在真实渲染里测量每个 box）----
+     把 SVG 挂进离屏 DOM，用 getBBox() 实测文本几何：
+     越界 / 字号过小不可读 / 文本两两重叠 / 空文本。
+     问题清单以结构化语言注入返修与差异反馈提示词。 */
+  function lintSvgGeometry(svgStr, W, H) {
+    return new Promise(function (resolve) {
+      var host = null;
+      var finish = function (problems) {
+        try { if (host && host.parentNode) host.parentNode.removeChild(host); } catch (e) {}
+        resolve(problems || []);
+      };
+      try {
+        host = document.createElement("div");
+        host.setAttribute("aria-hidden", "true");
+        host.style.cssText = "position:absolute;left:-99999px;top:0;width:" + Math.max(1, W) +
+          "px;height:" + Math.max(1, H) + "px;overflow:hidden;opacity:0;pointer-events:none";
+        host.innerHTML = String(svgStr || "");
+        document.body.appendChild(host);
+        requestAnimationFrame(function () {
+          setTimeout(function () {
+            var problems = [];
+            try {
+              var svg = host.querySelector("svg");
+              if (svg) {
+                var texts = Array.prototype.slice.call(svg.querySelectorAll("text"));
+                var boxes = [];
+                texts.forEach(function (t, idx) {
+                  var s = (t.textContent || "").trim();
+                  var b = null;
+                  try { b = t.getBBox(); } catch (e) { return; }
+                  if (!b || b.width <= 0 || b.height <= 0) return;
+                  if (!s) {
+                    problems.push({ k: "empty-text", d: "第 " + (idx + 1) + " 个 <text> 是空标签（应删除或补内容）" });
+                    return;
+                  }
+                  if (b.x + b.width > W + 4 || b.y + b.height > H + 4 || b.x < -4 || b.y < -4) {
+                    problems.push({ k: "out-of-canvas",
+                      d: "文本「" + s.slice(0, 16) + "」超出画布边界（bbox " + Math.round(b.x) + "," + Math.round(b.y) +
+                        " + " + Math.round(b.width) + "×" + Math.round(b.height) + "）" });
+                  }
+                  var fs = 0;
+                  try { fs = parseFloat(getComputedStyle(t).fontSize) || 0; } catch (e2) {}
+                  if (fs > 0 && fs < 4) {
+                    problems.push({ k: "tiny-text", d: "文本「" + s.slice(0, 16) + "」字号 " + fs.toFixed(1) + "px 过小不可读" });
+                  }
+                  boxes.push({ s: s, b: b });
+                });
+                var overlapN = 0;
+                for (var i = 0; i < boxes.length && overlapN < 8; i++) {
+                  for (var j = i + 1; j < boxes.length && overlapN < 8; j++) {
+                    var a = boxes[i].b, c = boxes[j].b;
+                    var ix = Math.min(a.x + a.width, c.x + c.width) - Math.max(a.x, c.x);
+                    var iy = Math.min(a.y + a.height, c.y + c.height) - Math.max(a.y, c.y);
+                    if (ix > 0 && iy > 0) {
+                      var inter = ix * iy;
+                      var minA = Math.min(a.width * a.height, c.width * c.height);
+                      if (minA > 0 && inter / minA > 0.6) {
+                        overlapN++;
+                        problems.push({ k: "overlap",
+                          d: "文本「" + boxes[i].s.slice(0, 12) + "」与「" + boxes[j].s.slice(0, 12) + "」重叠 >60%" });
+                      }
+                    }
+                  }
+                }
+              }
+            } catch (e) { /* lint 失败不阻塞主流程 */ }
+            finish(problems);
+          }, 40);
+        });
+      } catch (e) { finish([]); }
+    });
+  }
+
+  /* lint 清单 → 提示词片段（返修 / 差异反馈时随请求捎带，不额外发请求） */
+  function lintHintOf(job) {
+    if (!job || !job.lint || !job.lint.length) return "";
+    var lines = job.lint.slice(0, 10).map(function (p) { return "- " + p.d; });
+    return "\n\n## 几何 lint 问题清单（上机实测发现，修正时必须解决）\n" + lines.join("\n") +
+      (job.lint.length > 10 ? "\n- …另有 " + (job.lint.length - 10) + " 处同类问题" : "");
+  }
+
   /* ---------------------------------------------------------------
      9. 结果展示 / 对比
      --------------------------------------------------------------- */
@@ -3706,7 +3812,7 @@ textarea.input{height:auto;min-height:90px;padding:8px 10px;line-height:1.55;res
   }
 
   function clearQMetric() {
-    ["mMae", "mMaeA", "mEdge", "mShift", "mPrim", "mPrimConf", "mPrimGate", "mRounds", "mConv"].forEach(function (id) {
+    ["mMae", "mMaeA", "mEdge", "mShift", "mPrim", "mPrimConf", "mPrimGate", "mRounds", "mConv", "mLint"].forEach(function (id) {
       var e = $(id); if (e) e.textContent = "—";
     });
     ["vcSsim", "vcMae", "vcTime"].forEach(function (id) { var e = $(id); if (e) e.textContent = "—"; });
@@ -3752,6 +3858,15 @@ textarea.input{height:auto;min-height:90px;padding:8px 10px;line-height:1.55;res
         (job.editInfo ? " · text " + job.editInfo.text + " / path " + job.editInfo.path : "");
       $("mShift").textContent = "(" + job.q.dx + ", " + job.q.dy + ")";
       $("mRounds").textContent = job.refineRounds != null ? (job.refineRounds + " 轮") : "—";
+      if (job.lint) {
+        var lintEl = $("mLint");
+        if (lintEl) {
+          lintEl.textContent = job.lint.length
+            ? job.lint.length + " 处：" + job.lint.slice(0, 2).map(function (p) { return p.d; }).join("；") + (job.lint.length > 2 ? "…" : "")
+            : "无问题";
+          lintEl.title = job.lint.map(function (p) { return "- " + p.d; }).join("\n");
+        }
+      }
       $("mConv").textContent = job.refineStop || (job.refineRounds ? "达到上限" : "未触发返修");
       var s = $("gsDiag");
       if (s) {
@@ -6214,7 +6329,7 @@ textarea.input{height:auto;min-height:90px;padding:8px 10px;line-height:1.55;res
       try {
         var pal = job.prim && job.prim.palette && job.prim.palette.length ? job.prim.palette : quickPaletteOf(out);
         var diffPrompt = buildPrompt({ w: W, h: H }, "", job.page,
-          (job.textFromPdf ? NO_TEXT_HINT : "") + diffFeedbackHint(pal));
+          (job.textFromPdf ? NO_TEXT_HINT : "") + diffFeedbackHint(pal) + lintHintOf(job));
         var curFull = await canvasFromSvg(cur.svg, W, H);
         var diffRaw = await callModel(diffPrompt, out.toDataURL("image/png"), job, {
           label: "差异反馈重绘",
@@ -6290,7 +6405,7 @@ textarea.input{height:auto;min-height:90px;padding:8px 10px;line-height:1.55;res
           b: b, i: i, x0: x0, y0: y0, w: trip.width, h: trip.height, bw: b.w, bh: b.h,
           url: trip.toDataURL("image/png"),
           prompt: buildPrompt({ w: trip.width, h: trip.height }, "", job.page,
-            (job.textFromPdf ? NO_TEXT_HINT : "") + repairHint(b.r, b.c, grid))
+            (job.textFromPdf ? NO_TEXT_HINT : "") + repairHint(b.r, b.c, grid) + lintHintOf(job))
         };
       });
 
@@ -6850,6 +6965,18 @@ textarea.input{height:auto;min-height:90px;padding:8px 10px;line-height:1.55;res
         stageOf(job, "guard").status = "skip";
       }
 
+      /* 几何 lint：真实渲染里实测文本越界/过小/重叠（FigGenie 式 render→lint→fix），
+         结果随返修/差异反馈请求捎带给模型，同时在指标面板展示 */
+      stageBegin(job, "lint", "实测文本几何（getBBox）");
+      try {
+        job.lint = await lintSvgGeometry(info.svg, W, H);
+        stageEnd(job, "lint", job.lint.length ? "warn" : null,
+          job.lint.length ? "发现 " + job.lint.length + " 处问题（已注入返修提示词）" : "无问题");
+      } catch (e) {
+        job.lint = [];
+        stageEnd(job, "lint", "warn", "lint 失败：" + String(e.message || e).slice(0, 50));
+      }
+
       var wantRepair = S.settings.repair && Number(S.settings.repairRounds) > 0;
       var wantDiff = S.settings.diffFeedback && !S.settings.mock && !S.settings.programOnly;
       if (wantRepair || wantDiff) {
@@ -7207,19 +7334,19 @@ textarea.input{height:auto;min-height:90px;padding:8px 10px;line-height:1.55;res
     // 右栏：拖拽调宽（记住）/ 整体折叠（记住）/ 诊断展开
     (function initPanelLayout() {
       var pane = $("resultPane"), hd = $("btnPaneFold"), h = $("resultResize");
-      var wNow = 402, folded = false;
+      var wNow = 460, folded = false;
       function readLS(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
       function writeLS(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
       function paintW() {
         document.documentElement.style.setProperty("--rw", (folded ? 132 : wNow) + "px");
       }
       function applyW(w) {
-        wNow = Math.max(320, Math.min(640, Math.round(w)));
+        wNow = Math.max(380, Math.min(900, Math.round(w)));
         if (!folded) paintW();
         writeLS("pfv.panelW.v1", String(wNow));
       }
       var sw = Number(readLS("pfv.panelW.v1"));
-      if (sw >= 320 && sw <= 640) wNow = sw;
+      if (sw >= 380 && sw <= 900) wNow = sw;
       folded = readLS("pfv.panelFold.v1") === "1";
       function setFold(f) {
         folded = !!f;
