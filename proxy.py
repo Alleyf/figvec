@@ -12,9 +12,10 @@ proxy.py —— PDF 图表转矢量页面的本地 CORS 代理（零依赖，仅
     * 端口被占用时自动顺延（8787 → 8788 … 最多 10 个）。
 
 用法：
-  python proxy.py --upstream http://10.17.121.224:3425
-  python proxy.py --upstream http://10.17.121.224:3425 --port 8787
-  PFV_UPSTREAM=http://10.17.121.224:3425 python proxy.py
+  python proxy.py --upstream http://127.0.0.1:3425          # 本机网关
+  python proxy.py --upstream http://100.64.10.8:3425        # Tailscale IP
+  python proxy.py --upstream http://192.168.1.10:8000 --port 8787
+  PFV_UPSTREAM=http://127.0.0.1:3425 python proxy.py
 
 Windows 用户可直接双击同目录的 start-proxy.bat，它会先切到 UTF-8 代码页再调用本脚本，
 所以这里的英文兜底提示与中文提示都不会乱码。
@@ -370,7 +371,7 @@ def main():
 
     ap = argparse.ArgumentParser(description="PDF 图表转矢量的本地 CORS 代理")
     ap.add_argument("--upstream", default=os.environ.get("PFV_UPSTREAM", ""),
-                    help="上游 OpenAI 兼容地址，如 http://10.17.121.224:3425（也可用环境变量 PFV_UPSTREAM）")
+                    help="上游 OpenAI 兼容地址：本机网关 http://127.0.0.1:3425、Tailscale IP（100.x.x.x）或局域网地址（也可用环境变量 PFV_UPSTREAM）")
     ap.add_argument("--host", default="127.0.0.1", help="监听地址，默认只监听本机 127.0.0.1")
     ap.add_argument("--port", type=int, default=int(os.environ.get("PFV_PORT", "8787")),
                     help="起始监听端口，默认 8787；被占用时自动顺延")

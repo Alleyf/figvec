@@ -265,7 +265,12 @@ html[data-theme="dark"] .btn.primary:hover{background:var(--accent);filter:brigh
 .vnums span{font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
 .vnums b{font-family:var(--font-mono);font-size:18px;line-height:1.15;font-weight:700;color:var(--ink)}
 .vaux{margin-top:7px;font-size:10.5px;color:var(--muted);font-family:var(--font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.qgroups{flex:0 1 auto;min-height:0;max-height:46vh;overflow:auto;border-bottom:1px solid var(--rule)}
+/* 指标/诊断区：只在「指标 · 诊断」tab 显示，占满面板剩余高度 */
+.qgroups{display:none}
+.pane-result.show-metrics .qgroups{
+  display:block;flex:1 1 auto;min-height:0;overflow:auto;
+  border-top:1px solid var(--rule);border-bottom:none;
+}
 .qgroup{border-bottom:1px solid var(--rule)}
 .qgroup:last-child{border-bottom:0}
 .qgroup > summary{display:flex;align-items:center;gap:7px;padding:8px 12px;cursor:pointer;font-size:12px;font-weight:600;color:var(--ink);list-style:none}
@@ -319,9 +324,14 @@ html[data-theme="dark"] .btn.primary:hover{background:var(--accent);filter:brigh
 .live-grid figcaption:hover{color:var(--ink)}
 .live-grid figcaption::after{content:" ▾";font-size:9px}
 .live-grid figure.src-expanded figcaption::after{content:" ▴"}
-#zSrc{height:170px}
+#zSrc{height:100px}
 #zSrc.expanded{height:clamp(340px,44vh,660px)}
-#zSvg{height:clamp(340px,48vh,680px)}
+/* 预览 tab 下结论卡压成一行（完整数字看「指标 · 诊断」），空间让给画布 */
+.pane-result:not(.show-metrics) .vcard .vnums,
+.pane-result:not(.show-metrics) .vcard .vaux{display:none}
+.pane-result:not(.show-metrics) .vcard{padding:5px 12px}
+/* SVG 预览高度由 fitPreview() 按面板剩余空间动态计算（--zsvg-h），尽可能大 */
+#zSvg{height:var(--zsvg-h,clamp(340px,48vh,680px))}
 .viewport.tall #zSvg{height:clamp(420px,62vh,840px)}
 /* ---- 缩放查看器（SVG / 位图通用） ---- */
 .zbar{grid-column:1/-1;display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin:0 0 2px}
@@ -557,7 +567,6 @@ textarea.input{height:auto;min-height:90px;padding:8px 10px;line-height:1.55;res
   .studio{grid-template-columns:232px minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}
   .pane-result{grid-column:1/-1;border-left:0;border-top:1px solid var(--rule);max-height:56vh}
   .pane-result .rhandle{display:none}
-  .qgroups{max-height:none}
   .pane-result .viewport{min-height:150px}
   .pane-result .viewport img{max-height:260px}
 }
@@ -724,6 +733,36 @@ textarea.input{height:auto;min-height:90px;padding:8px 10px;line-height:1.55;res
         </div>
         <div class="vaux" id="vcAux">模型 — · 档位 — · 请求 —</div>
       </div>
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="preview" role="tab">预览</button>
+        <button class="tab" data-tab="compare" role="tab">对比</button>
+        <button class="tab" data-tab="source" role="tab">源码</button>
+        <button class="tab" data-tab="metrics" role="tab">指标 · 诊断</button>
+      </div>
+      <div class="progress" id="progressPanel" hidden>
+        <div class="progress-hd">
+          <span class="spinner" id="pgSpin"></span>
+          <span class="ttl" id="pgTitle">生成中</span>
+          <span class="spacer"></span>
+          <span class="elapsed" id="pgElapsed">0.0s</span>
+        </div>
+        <div class="stages" id="stageList"></div>
+        <div class="progress-note" id="pgNote"></div>
+      </div>
+      <div class="noticebar" id="routeBar" hidden>
+        <div class="nb-txt">
+          <strong id="routeBarTtl">模型路由不一致</strong>
+          <span id="routeBarTxt"></span>
+        </div>
+        <button class="btn sm" id="btnOpenModel">查看模型探测</button>
+      </div>
+      <div class="noticebar" id="budgetBar" hidden style="border-color:var(--warn)">
+        <div class="nb-txt">
+          <strong>当前预算偏小</strong>
+          <span id="budgetBarTxt"></span>
+        </div>
+        <button class="btn sm" id="btnBoostBudget">一键提升到 8192</button>
+      </div>
       <div class="qgroups">
         <details class="qgroup" id="gMetric">
           <summary>指标详情<span class="gs" id="gsMetric">—</span></summary>
@@ -768,35 +807,6 @@ textarea.input{height:auto;min-height:90px;padding:8px 10px;line-height:1.55;res
             <span class="hint">已省略 Key 与请求头</span>
           </div>
         </details>
-      </div>
-      <div class="tabs" role="tablist">
-        <button class="tab active" data-tab="preview" role="tab">SVG 预览</button>
-        <button class="tab" data-tab="compare" role="tab">对比原始</button>
-        <button class="tab" data-tab="source" role="tab">源码</button>
-      </div>
-      <div class="progress" id="progressPanel" hidden>
-        <div class="progress-hd">
-          <span class="spinner" id="pgSpin"></span>
-          <span class="ttl" id="pgTitle">生成中</span>
-          <span class="spacer"></span>
-          <span class="elapsed" id="pgElapsed">0.0s</span>
-        </div>
-        <div class="stages" id="stageList"></div>
-        <div class="progress-note" id="pgNote"></div>
-      </div>
-      <div class="noticebar" id="routeBar" hidden>
-        <div class="nb-txt">
-          <strong id="routeBarTtl">模型路由不一致</strong>
-          <span id="routeBarTxt"></span>
-        </div>
-        <button class="btn sm" id="btnOpenModel">查看模型探测</button>
-      </div>
-      <div class="noticebar" id="budgetBar" hidden style="border-color:var(--warn)">
-        <div class="nb-txt">
-          <strong>当前预算偏小</strong>
-          <span id="budgetBarTxt"></span>
-        </div>
-        <button class="btn sm" id="btnBoostBudget">一键提升到 8192</button>
       </div>
       <div class="viewport" id="viewport">
         <div class="livebar" id="liveBar" hidden>
@@ -1212,7 +1222,7 @@ textarea.input{height:auto;min-height:90px;padding:8px 10px;line-height:1.55;res
 
   var $ = function (id) { return document.getElementById(id); };
   var LS = "pfv.settings.v1";
-  var BUILD = "2026-11-23 · r5";
+  var BUILD = "2026-11-23 · r6";
   var THEME_LS = "pfv.theme";
   var MAX_SIDE = 2200;
   function tierOf() {
@@ -2223,6 +2233,7 @@ textarea.input{height:auto;min-height:90px;padding:8px 10px;line-height:1.55;res
     }
     $("liveSvgMeta").textContent = (job.nodes || 0) + " 元素 · " + fmtBytes(job.bytes || 0);
     updateLiveBar(job);
+    fitPreview();
     refreshZoom("preview");
   }
 
@@ -2390,8 +2401,8 @@ textarea.input{height:auto;min-height:90px;padding:8px 10px;line-height:1.55;res
         maxBtn.textContent = on ? "✕ 退出全屏" : "⛶ 全屏";
       }
       syncBodyOverlay();
-      setTimeout(apply, 0);
-      setTimeout(apply, 180);
+      setTimeout(function () { fitPreview(); apply(); }, 0);
+      setTimeout(function () { fitPreview(); apply(); }, 180);
     }
 
     /* ---- 指针交互：拖拽 + 双指缩放 ---- */
@@ -2531,7 +2542,7 @@ textarea.input{height:auto;min-height:90px;padding:8px 10px;line-height:1.55;res
         if ($("liveGrid").classList.contains("max")) return; /* 全屏下两图各半，不切换 */
         fig.classList.toggle("src-expanded");
         $("zSrc").classList.toggle("expanded");
-        setTimeout(function () { refreshZoom("preview"); }, 0);
+        setTimeout(function () { fitPreview(); refreshZoom("preview"); }, 0);
       });
     })();
 
@@ -2543,7 +2554,7 @@ textarea.input{height:auto;min-height:90px;padding:8px 10px;line-height:1.55;res
     var rt = 0;
     window.addEventListener("resize", function () {
       if (rt) clearTimeout(rt);
-      rt = setTimeout(function () { refreshZoom(); }, 120);
+      rt = setTimeout(function () { fitPreview(); refreshZoom(); }, 120);
     });
 
     document.addEventListener("keydown", function (e) {
@@ -2659,7 +2670,9 @@ textarea.input{height:auto;min-height:90px;padding:8px 10px;line-height:1.55;res
   function renderProgress() {
     var job = progressJob();
     var panel = $("progressPanel");
-    if (!job || !job.stages) { if (panel) panel.hidden = true; return; }
+    if (!job || !job.stages) { if (panel) panel.hidden = true; fitPreview(); return; }
+    /* 完成的任务自动收起进度面板：把空间让给预览（阶段耗时见「指标 · 诊断」） */
+    if (job.status === "done" || job.status === "canceled") { if (panel) panel.hidden = true; fitPreview(); return; }
     panel.hidden = false;
     var running = job.status === "running";
     $("pgSpin").style.display = running ? "" : "none";
@@ -2706,6 +2719,8 @@ textarea.input{height:auto;min-height:90px;padding:8px 10px;line-height:1.55;res
     $("pgNote").textContent = note;
     $("pgNote").hidden = !note;
     updateLiveBar(job);
+    /* 进度面板显隐会改变预览可用高度 */
+    fitPreview();
   }
 
 
@@ -7223,20 +7238,38 @@ textarea.input{height:auto;min-height:90px;padding:8px 10px;line-height:1.55;res
   /* ---------------------------------------------------------------
      13. 事件绑定
      --------------------------------------------------------------- */
+  /* 预览高度自适应：把「预览」tab 里 SVG 画布撑到面板剩余空间的全部 */
+  function fitPreview() {
+    var vp = $("viewport"), grid = $("liveGrid"), src = $("zSrc"), bar = $("zbarPreview");
+    if (!vp || !grid || !src) return;
+    if (grid.classList.contains("max") || vp.closest(".pane-result").classList.contains("show-metrics")) return;
+    var figSrc = src.closest("figure");
+    var capH = 0, fig = figSrc && figSrc.querySelector("figcaption");
+    if (fig) capH = fig.offsetHeight + 3;
+    var barH = (bar && !bar.hidden) ? bar.offsetHeight + 2 : 0;
+    var gap = 10;
+    var avail = vp.clientHeight - (barH + src.offsetHeight + capH + gap + 12);
+    avail = Math.max(220, Math.round(avail));
+    document.documentElement.style.setProperty("--zsvg-h", avail + "px");
+  }
+
   function setTab(t) {
     curTab = t;
     Array.prototype.forEach.call(document.querySelectorAll(".tab"), function (b) {
       b.classList.toggle("active", b.dataset.tab === t);
     });
+    var showMetrics = t === "metrics";
     $("viewPreview").style.display = t === "preview" ? "flex" : "none";
     $("viewCompare").style.display = t === "compare" ? "grid" : "none";
     $("resCode").style.display = t === "source" ? "block" : "none";
+    $("resultPane").classList.toggle("show-metrics", showMetrics);
+    $("viewport").style.display = showMetrics ? "none" : "";
     if (t === "compare") {
       var job = activeJob();
       if (job && job.status === "done") computeCompare(job);
       else clearQMetric();
     }
-    setTimeout(function () { refreshZoom(); }, 0);
+    setTimeout(function () { if (!showMetrics) { fitPreview(); refreshZoom(); } }, 0);
   }
 
   function refreshPrimControls() {

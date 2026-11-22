@@ -15,9 +15,12 @@ cd /d "%~dp0"
 title PDF Figure to SVG - local CORS proxy
 
 rem First argument (optional) overrides the upstream base URL.
-rem Example: start-proxy.bat http://192.168.1.10:8000
+rem Examples:
+rem   start-proxy.bat                          -> local gateway http://127.0.0.1:3425
+rem   start-proxy.bat http://100.64.10.8:3425  -> Tailscale IP of the gateway machine
+rem   start-proxy.bat http://192.168.1.10:8000 -> any LAN address
 set "UPSTREAM=%~1"
-if not defined UPSTREAM set "UPSTREAM=http://10.17.121.224:3425"
+if not defined UPSTREAM set "UPSTREAM=http://127.0.0.1:3425"
 
 rem ---- find a usable Python 3 interpreter (python / py -3 / python3) ----
 python -c "import sys" >nul 2>nul
@@ -43,7 +46,7 @@ echo.
 echo [ERROR] Python 3 not found.
 echo Install Python 3.8 or newer from https://www.python.org/downloads/windows/
 echo and tick "Add python.exe to PATH", then run this file again.
-echo Manual start: py -3 proxy.py --upstream http://10.17.121.224:3425
+echo Manual start: py -3 proxy.py --upstream http://127.0.0.1:3425
 echo.
 rem Optional one-line Chinese hint. The text is carried as base64 so
 rem that this batch file stays pure ASCII. Any failure is ignored.
