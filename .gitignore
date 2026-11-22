@@ -1,0 +1,8 @@
+# Local working files, not part of the published tool
+.screenshots/
+.trae-html-share-packages/
+test-assets/
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
